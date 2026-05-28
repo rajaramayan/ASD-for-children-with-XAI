@@ -419,26 +419,50 @@ elif page == "🔮 Make Prediction":
             le_dict = st.session_state.le_dict
             
             st.write("Enter screening values for the patient:")
-            
+
+            # Display labels (rename internal column names to user-friendly text)
+            FEATURE_LABELS = {
+                "Age_Mons": "Age_Months",
+            }
+
+            # Tooltip descriptions for Q-CHAT-10 behavioural items and score
+            FEATURE_HELP = {
+                "A1":  "Does your child look at you when you call his/her name?",
+                "A2":  "How easy is it for you to get eye contact with your child?",
+                "A3":  "Does your child point to indicate that s/he wants something? (e.g. a toy that is out of reach)",
+                "A4":  "Does your child point to share interest with you? (e.g. pointing at an interesting sight)",
+                "A5":  "Does your child pretend? (e.g. care for dolls, talk on a toy phone)",
+                "A6":  "Does your child follow where you're looking?",
+                "A7":  "If you or someone else in the family is visibly upset, "
+                       "does your child show signs of wanting to comfort them?",
+                "A8":  "Would you describe your child's first words as typical for their age?",
+                "A9":  "Does your child use simple gestures? (e.g. wave goodbye)",
+                "A10": "Does your child stare at nothing with no apparent purpose?",
+                "Qchat-10-Score": "Total Q-CHAT-10 score (sum of A1–A10 responses, range 0–10). "
+                                  "Higher scores indicate more ASD-associated behaviours.",
+            }
+
             # Create input form
             user_input = {}
             cols = st.columns(3)
 
             for idx, feature in enumerate(feature_names):
                 with cols[idx % 3]:
+                    label = FEATURE_LABELS.get(feature, feature)
+                    help_text = FEATURE_HELP.get(feature, None)
                     if feature in categorical_cols and feature in le_dict:
                         classes = list(le_dict[feature].classes_)
                         if len(classes) == 2:
                             # Binary categorical (Sex, Jaundice, Family_mem_with_ASD) → radio
                             selected_label = st.radio(
-                                feature, options=classes, horizontal=True
+                                label, options=classes, horizontal=True, help=help_text
                             )
                         elif feature == "Ethnicity":
                             # Ethnicity has 11 options — vertical radio to avoid dropdown clipping
-                            selected_label = st.radio(feature, options=classes)
+                            selected_label = st.radio(label, options=classes, help=help_text)
                         else:
                             # Other multi-class categorical (Who completed the test) → selectbox
-                            selected_label = st.selectbox(feature, options=classes)
+                            selected_label = st.selectbox(label, options=classes, help=help_text)
                         user_input[feature] = int(le_dict[feature].transform([selected_label])[0])
                     else:
                         min_val = int(df_encoded[feature].min())
@@ -447,17 +471,19 @@ elif page == "🔮 Make Prediction":
                         if min_val == 0 and max_val == 1:
                             # Binary numeric (A1–A10) → radio with Yes/No labels
                             user_input[feature] = st.radio(
-                                feature, options=[0, 1], horizontal=True,
-                                format_func=lambda x: "Yes" if x == 1 else "No"
+                                label, options=[0, 1], horizontal=True,
+                                format_func=lambda x: "Yes" if x == 1 else "No",
+                                help=help_text
                             )
                         else:
-                            # Integer numeric (Age_Mons, Qchat-10-Score) → integer slider
+                            # Integer numeric (Age_Months, Qchat-10-Score) → integer slider
                             user_input[feature] = st.slider(
-                                feature,
+                                label,
                                 min_value=min_val,
                                 max_value=max_val,
                                 value=default_val,
-                                step=1
+                                step=1,
+                                help=help_text
                             )
             
             if st.button("🎯 Predict", key="predict_button"):
