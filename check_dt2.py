@@ -1,13 +1,13 @@
 import pickle
-import numpy as np
 import pandas as pd
 import warnings
-warnings.filterwarnings('ignore')
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import export_text
 from imblearn.over_sampling import SMOTE
+
+warnings.filterwarnings('ignore')
 
 # Load saved model and scaler
 with open('models/trained_models.pkl', 'rb') as f:
@@ -61,4 +61,4 @@ print(f"computed sum == Qchat-10-Score for ALL rows: {match}")
 print()
 print("=== Cutoff verification ===")
 print("Score < threshold -> ASD- (No), Score >= threshold -> ASD+ (Yes)")
-print(df.groupby('Class/ASD Traits ')['Qchat-10-Score'].agg(['min','max','mean']))
+print(df.groupby('Class/ASD Traits ')['Qchat-10-Score'].agg(['min', 'max', 'mean']))
