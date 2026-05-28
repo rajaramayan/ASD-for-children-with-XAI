@@ -77,7 +77,7 @@ This project trains and evaluates multiple ML models and an ANN on ASD screening
 
 ## 🚀 How to Run
 
-### 1. Install Dependencies
+is lesser thn ### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```

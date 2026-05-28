@@ -423,21 +423,42 @@ elif page == "🔮 Make Prediction":
             # Create input form
             user_input = {}
             cols = st.columns(3)
-            
+
             for idx, feature in enumerate(feature_names):
                 with cols[idx % 3]:
-                    # Get min/max from encoded data
-                    min_val = float(df_encoded[feature].min())
-                    max_val = float(df_encoded[feature].max())
-                    default_val = (min_val + max_val) / 2
-                    
-                    user_input[feature] = st.slider(
-                        f"{feature}",
-                        min_value=min_val,
-                        max_value=max_val,
-                        value=default_val,
-                        step=0.1
-                    )
+                    if feature in categorical_cols and feature in le_dict:
+                        classes = list(le_dict[feature].classes_)
+                        if len(classes) == 2:
+                            # Binary categorical (Sex, Jaundice, Family_mem_with_ASD) → radio
+                            selected_label = st.radio(
+                                feature, options=classes, horizontal=True
+                            )
+                        elif feature == "Ethnicity":
+                            # Ethnicity has 11 options — vertical radio to avoid dropdown clipping
+                            selected_label = st.radio(feature, options=classes)
+                        else:
+                            # Other multi-class categorical (Who completed the test) → selectbox
+                            selected_label = st.selectbox(feature, options=classes)
+                        user_input[feature] = int(le_dict[feature].transform([selected_label])[0])
+                    else:
+                        min_val = int(df_encoded[feature].min())
+                        max_val = int(df_encoded[feature].max())
+                        default_val = (min_val + max_val) // 2
+                        if min_val == 0 and max_val == 1:
+                            # Binary numeric (A1–A10) → radio with Yes/No labels
+                            user_input[feature] = st.radio(
+                                feature, options=[0, 1], horizontal=True,
+                                format_func=lambda x: "Yes" if x == 1 else "No"
+                            )
+                        else:
+                            # Integer numeric (Age_Mons, Qchat-10-Score) → integer slider
+                            user_input[feature] = st.slider(
+                                feature,
+                                min_value=min_val,
+                                max_value=max_val,
+                                value=default_val,
+                                step=1
+                            )
             
             if st.button("🎯 Predict", key="predict_button"):
                 # Prepare input - convert to proper values
