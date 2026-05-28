@@ -43,6 +43,30 @@ page = st.sidebar.radio(
     ["🏠 Home", "🤖 Model Training", "🔮 Make Prediction", "📊 Model Comparison"]
 )
 
+# ---- Close App ----
+if "app_closed" not in st.session_state:
+    st.session_state.app_closed = False
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚙️ App Controls")
+if st.sidebar.button("🔴 Close App", help="End your session", use_container_width=True):
+    st.session_state.app_closed = True
+
+if st.session_state.app_closed:
+    st.balloons()
+    st.markdown("""
+    <div style="text-align:center; padding: 60px 20px;">
+        <h1>👋 Thank You!</h1>
+        <h3>Thank you for using the ASD Screening Prediction System.</h3>
+        <br>
+        <p style="font-size:18px;">Your session has ended.</p>
+        <hr>
+        <p style="color:gray;">You can now <strong>close this browser tab</strong>.<br>
+        To fully stop the server, press <kbd>Ctrl+C</kbd> in the terminal window.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
 # ==========================================
 # UTILITY FUNCTIONS
 # ==========================================

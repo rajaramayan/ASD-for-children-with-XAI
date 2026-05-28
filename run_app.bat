@@ -17,6 +17,6 @@ echo Press Ctrl+C to stop the server
 echo.
 timeout /t 2
 
-streamlit run streamlit_app.py
+streamlit run streamlit_app.py --server.fileWatcherType none
 
 pause

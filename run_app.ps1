@@ -35,4 +35,4 @@ Write-Host ""
 
 Start-Sleep -Seconds 2
 
-streamlit run streamlit_app.py
+streamlit run streamlit_app.py --server.fileWatcherType none
