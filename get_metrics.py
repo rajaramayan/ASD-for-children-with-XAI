@@ -13,7 +13,8 @@ rdf['_p'] = rdf['Model'].map(MODEL_PRIORITY)
 rdf = rdf.sort_values(by=['ROC-AUC','_p'],ascending=[False,True]).drop(columns=['_p']).reset_index(drop=True)
 
 df = pd.read_csv('Toddler Autism dataset July 2018.csv')
-df.drop(columns=['Case_No'], inplace=True)
+df.drop(columns=['Case_No'], errors='ignore', inplace=True)
+df.columns = df.columns.str.strip()
 df.drop_duplicates(inplace=True)
 df.fillna(df.mode().iloc[0], inplace=True)
 categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
@@ -24,8 +25,10 @@ for col in categorical_cols:
 for col in df_enc.columns:
     df_enc[col] = pd.to_numeric(df_enc[col], errors='coerce')
 df_enc.fillna(df_enc.mean(), inplace=True)
-X = df_enc.iloc[:, :-1]
-y = df_enc.iloc[:, -1]
+leaky_cols = [c for c in df_enc.columns if 'qchat' in c.lower() or 'score' in c.lower()]
+drop_cols = list(set(['Class/ASD Traits'] + leaky_cols))
+X = df_enc.drop(columns=[c for c in drop_cols if c in df_enc.columns])
+y = df_enc['Class/ASD Traits']
 _, X_test_raw, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 X_test_scaled = scaler.transform(X_test_raw)
 

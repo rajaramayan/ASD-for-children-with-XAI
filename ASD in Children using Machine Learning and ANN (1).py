@@ -5,10 +5,13 @@ import os
 import pickle
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend for script execution
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import binom
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                              f1_score, roc_auc_score, confusion_matrix,
@@ -31,7 +34,8 @@ MODELS_DIR = "models"
 # 2. LOAD DATASET
 # ==========================================
 df = pd.read_csv("Toddler Autism dataset July 2018.csv")
-df.drop(columns=['Case_No'], inplace=True)
+df.drop(columns=['Case_No'], errors='ignore', inplace=True)
+df.columns = df.columns.str.strip()
 
 print("Shape:", df.shape)
 print(df.info())
@@ -58,10 +62,20 @@ for col in df_encoded.columns:
     df_encoded[col] = pd.to_numeric(df_encoded[col], errors='coerce')
 df_encoded.fillna(df_encoded.mean(), inplace=True)
 
-# Split features and target
-X = df_encoded.iloc[:, :-1]
-y = df_encoded.iloc[:, -1]
+# Split features and target — EXCLUDE TARGET LEAKAGE COLUMNS (Qchat-10-Score)
+leaky_cols = [c for c in df_encoded.columns if 'qchat' in c.lower() or 'score' in c.lower()]
+drop_cols = list(set(['Class/ASD Traits'] + leaky_cols))
+
+X = df_encoded.drop(columns=[c for c in drop_cols if c in df_encoded.columns])
+y = df_encoded['Class/ASD Traits']
 feature_names = X.columns.tolist()
+
+print(f"\nTarget leakage prevention applied: Removed {leaky_cols}")
+print(f"Features selected for training ({len(feature_names)} features): {feature_names}")
+
+# Update numeric and categorical column lists for metadata without target & dropped cols
+numeric_cols = [c for c in numeric_cols if c in feature_names]
+categorical_cols = [c for c in categorical_cols if c in feature_names]
 
 # ==========================================
 # 4. TRAIN-TEST SPLIT
@@ -147,6 +161,9 @@ ann = MLPClassifier(
     activation='relu',
     solver='adam',
     max_iter=200,
+    early_stopping=True,
+    validation_fraction=0.1,
+    n_iter_no_change=10,
     random_state=42
 )
 ann.fit(X_train_scaled, y_train)
@@ -174,36 +191,68 @@ roc_data.append(("ANN", fpr_ann, tpr_ann, roc_auc))
 # 10. CREATE RESULTS DATAFRAME
 # ==========================================
 results_df = pd.DataFrame(results, columns=columns)
+results_df_sorted = results_df.sort_values(by="ROC-AUC", ascending=False).reset_index(drop=True)
 
-# Rank by ROC-AUC, then by explicit model priority when tied.
-# ANN ranks first among tied models (best soft-probability calibration);
-# Decision Tree ranks last (outputs hard 0/1 probabilities — overconfident).
-MODEL_PRIORITY = {
-    "ANN": 1, "Random Forest": 2, "Logistic Regression": 3,
-    "SVM (RBF)": 4, "QDA": 5, "KNN": 6,
-    "Naive Bayes": 7, "SVM (Poly)": 8, "Decision Tree": 9
-}
-results_df["_priority"] = results_df["Model"].map(MODEL_PRIORITY).fillna(10)
-results_df_sorted = results_df.sort_values(
-    by=["ROC-AUC", "_priority"], ascending=[False, True]
-).drop(columns=["_priority"]).reset_index(drop=True)
-
-print("\nFinal Model Comparison:\n")
+print("\nFinal Model Comparison (Sorted by Test ROC-AUC):\n")
 print(results_df_sorted.to_string(index=False))
 
 # ==========================================
-# 11. OVERFITTING ANALYSIS
+# 11. 10-FOLD STRATIFIED CROSS-VALIDATION & OVERFITTING DIAGNOSTICS
 # ==========================================
-def gap_status(gap):
-    if gap < 0.02:   return "No overfitting"
-    if gap < 0.05:   return "Mild — acceptable"
-    if gap < 0.10:   return "Moderate — needs justification"
-    return "Severe overfitting"
+print("\nRunning 10-Fold Stratified Cross-Validation...")
+skf = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+cv_summary = []
 
-gap_df = results_df_sorted[["Model", "Train Accuracy", "Accuracy", "Gap"]].copy()
-gap_df["Status"] = gap_df["Gap"].apply(gap_status)
-print("\nOverfitting Analysis:\n")
-print(gap_df.to_string(index=False))
+all_eval_models = dict(models)
+all_eval_models["ANN"] = ann
+
+for name, model in all_eval_models.items():
+    scores = cross_validate(model, X_train_scaled, y_train, cv=skf, scoring=['accuracy', 'f1', 'roc_auc'], return_train_score=True)
+    train_acc_mean = np.mean(scores['train_accuracy'])
+    val_acc_mean = np.mean(scores['test_accuracy'])
+    val_acc_std = np.std(scores['test_accuracy'])
+    val_f1_mean = np.mean(scores['test_f1'])
+    val_auc_mean = np.mean(scores['test_roc_auc'])
+    cv_gap = train_acc_mean - val_acc_mean
+    
+    cv_summary.append({
+        "Model": name,
+        "CV Train Acc": train_acc_mean,
+        "CV Val Acc Mean": val_acc_mean,
+        "CV Val Acc Std": val_acc_std,
+        "CV F1": val_f1_mean,
+        "CV ROC-AUC": val_auc_mean,
+        "CV Gap": cv_gap
+    })
+
+cv_df = pd.DataFrame(cv_summary).sort_values(by="CV ROC-AUC", ascending=False)
+print("\n10-Fold Stratified Cross-Validation Results:")
+print(cv_df.to_string(index=False))
+
+# ==========================================
+# 11b. STATISTICAL SIGNIFICANCE TESTING (McNemar's Test)
+# ==========================================
+print("\nStatistical Significance Testing (McNemar's Test vs Best Classical Model):")
+top_classical = results_df_sorted[results_df_sorted["Model"] != "ANN"].iloc[0]["Model"]
+top_classical_pred = trained_models[top_classical].predict(X_test_scaled)
+
+b = np.sum((y_pred_ann == y_test) & (top_classical_pred != y_test))  # ANN correct, Classical wrong
+c = np.sum((y_pred_ann != y_test) & (top_classical_pred == y_test))  # ANN wrong, Classical correct
+
+n_disc = b + c
+if n_disc > 0:
+    p_value = 2 * binom.cdf(min(b, c), n_disc, 0.5)
+    p_value = min(1.0, p_value)
+else:
+    p_value = 1.0
+
+print(f"Comparison Pair: ANN vs {top_classical}")
+print(f"Disagreements: ANN correct/Classical wrong = {b}, ANN wrong/Classical correct = {c}")
+print(f"McNemar exact p-value: {p_value:.4f}")
+if p_value < 0.05:
+    print(f"Conclusion: Performance difference between ANN and {top_classical} IS statistically significant (p < 0.05).")
+else:
+    print(f"Conclusion: Performance difference between ANN and {top_classical} IS NOT statistically significant (p >= 0.05).")
 
 # ==========================================
 # 12. ROC CURVE (ALL MODELS)
@@ -214,7 +263,6 @@ fpr_grid = np.linspace(0, 1, 300)
 
 plt.figure(figsize=(10, 8))
 for i, (name, fpr, tpr, auc) in enumerate(roc_data):
-    # Keep only first occurrence of each FPR value so the curve starts at (0,0)
     _, first_idx = np.unique(fpr, return_index=True)
     tpr_smooth = np.interp(fpr_grid, fpr[first_idx], tpr[first_idx])
     plt.plot(fpr_grid, tpr_smooth,
@@ -225,22 +273,24 @@ for i, (name, fpr, tpr, auc) in enumerate(roc_data):
 plt.plot([0, 1], [0, 1], 'k--', linewidth=1, label='Random Classifier')
 plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
-plt.title("ROC Curve Comparison (All Models Including ANN)")
+plt.title("ROC Curve Comparison (Target-Leakage-Free Models)")
 plt.legend(loc='lower right')
 plt.grid(alpha=0.3)
 plt.tight_layout()
-plt.show()
+plt.savefig("roc_curve.png", dpi=300)
+plt.close()
 
 # ==========================================
 # 13. BAR PLOT — PERFORMANCE COMPARISON
 # ==========================================
 fig, ax = plt.subplots(figsize=(12, 6))
 results_df_sorted.set_index("Model")[["Accuracy", "F1 Score", "ROC-AUC"]].plot(kind='bar', ax=ax)
-ax.set_title("Model Performance Comparison (All Models)")
+ax.set_title("Model Performance Comparison (Target-Leakage-Free Models)")
 ax.set_ylabel("Score")
 plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
-plt.show()
+plt.savefig("model_comparison_bar.png", dpi=300)
+plt.close()
 
 # ==========================================
 # 14. CONFUSION MATRIX (BEST MODEL)
@@ -257,7 +307,8 @@ plt.figure(figsize=(6, 5))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
 plt.title(f"Confusion Matrix — {best_model_name}")
 plt.tight_layout()
-plt.show()
+plt.savefig("confusion_matrix_best.png", dpi=300)
+plt.close()
 
 # ==========================================
 # 15. FINAL BEST MODEL SUMMARY

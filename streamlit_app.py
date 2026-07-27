@@ -75,7 +75,8 @@ if st.session_state.app_closed:
 def load_data():
     """Load the CSV dataset - cached for performance"""
     df = pd.read_csv("Toddler Autism dataset July 2018.csv")
-    df.drop(columns=['Case_No'], inplace=True)
+    df.drop(columns=['Case_No'], errors='ignore', inplace=True)
+    df.columns = df.columns.str.strip()
     return df
 
 @st.cache_data
@@ -141,9 +142,12 @@ def load_pretrained_models():
     df_encoded, _, _, _ = prepare_data(df)
     st.session_state.df_encoded = df_encoded
 
-    # Re-derive X_test_scaled and y_test using identical pipeline (fixed seed)
-    X = df_encoded.iloc[:, :-1]
-    y = df_encoded.iloc[:, -1]
+    # Re-derive X_test_scaled and y_test using identical pipeline (excluding target leakage columns)
+    leaky_cols = [c for c in df_encoded.columns if 'qchat' in c.lower() or 'score' in c.lower()]
+    drop_cols = list(set(['Class/ASD Traits'] + leaky_cols))
+
+    X = df_encoded.drop(columns=[c for c in drop_cols if c in df_encoded.columns])
+    y = df_encoded['Class/ASD Traits']
     _, X_test_raw, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     st.session_state.X_test_scaled = scaler.transform(X_test_raw)
     st.session_state.y_test = y_test.values
@@ -222,6 +226,9 @@ def train_ann(X_train_scaled, X_test_scaled, y_train, y_test):
         activation='relu',
         solver='adam',
         max_iter=200,
+        early_stopping=True,
+        validation_fraction=0.1,
+        n_iter_no_change=10,
         random_state=42
     )
 
@@ -324,9 +331,12 @@ elif page == "🤖 Model Training":
         df = load_data()
         df_encoded, le_dict, numeric_cols, categorical_cols = prepare_data(df)
         
-        # Split features and target
-        X = df_encoded.iloc[:, :-1]
-        y = df_encoded.iloc[:, -1]
+        # Split features and target — EXCLUDE TARGET LEAKAGE COLUMNS (Qchat-10-Score)
+        leaky_cols = [c for c in df_encoded.columns if 'qchat' in c.lower() or 'score' in c.lower()]
+        drop_cols = list(set(['Class/ASD Traits'] + leaky_cols))
+
+        X = df_encoded.drop(columns=[c for c in drop_cols if c in df_encoded.columns])
+        y = df_encoded['Class/ASD Traits']
         
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
@@ -383,9 +393,9 @@ elif page == "🤖 Model Training":
             st.subheader("📈 Model Performance Results")
 
             MODEL_PRIORITY = {
-                "ANN": 1, "Random Forest": 2, "Logistic Regression": 3,
-                "SVM (RBF)": 4, "QDA": 5, "KNN": 6,
-                "Naive Bayes": 7, "SVM (Poly)": 8, "Decision Tree": 9
+                "Logistic Regression": 1, "SVM (RBF)": 2, "ANN": 3,
+                "Random Forest": 4, "QDA": 5, "KNN": 6,
+                "Naive Bayes": 7, "Decision Tree": 8, "SVM (Poly)": 9
             }
             _df = st.session_state.results_df.copy()
             _df["_priority"] = _df["Model"].map(MODEL_PRIORITY).fillna(10)
@@ -511,17 +521,9 @@ elif page == "🔮 Make Prediction":
                             )
             
             if st.button("🎯 Predict", key="predict_button"):
-                # Prepare input - convert to proper values
-                input_values = []
-                for f in feature_names:
-                    val = user_input[f]
-                    try:
-                        input_values.append(float(val))
-                    except (ValueError, TypeError):
-                        input_values.append(val)
-                
-                input_array = np.array(input_values).reshape(1, -1).astype(float)
-                input_scaled = st.session_state.scaler.transform(input_array)
+                # Prepare input DataFrame with feature names to avoid UserWarning
+                input_df = pd.DataFrame([{f: float(user_input[f]) for f in feature_names}], columns=feature_names)
+                input_scaled = st.session_state.scaler.transform(input_df)
                 
                 col1, col2 = st.columns(2)
                 
@@ -529,9 +531,9 @@ elif page == "🔮 Make Prediction":
                     st.subheader("Classical Model Predictions")
                     # Get best classical model (ranked by ROC-AUC, then model priority)
                     MODEL_PRIORITY = {
-                        "ANN": 1, "Random Forest": 2, "Logistic Regression": 3,
-                        "SVM (RBF)": 4, "QDA": 5, "KNN": 6,
-                        "Naive Bayes": 7, "SVM (Poly)": 8, "Decision Tree": 9
+                        "Logistic Regression": 1, "SVM (RBF)": 2, "ANN": 3,
+                        "Random Forest": 4, "QDA": 5, "KNN": 6,
+                        "Naive Bayes": 7, "Decision Tree": 8, "SVM (Poly)": 9
                     }
                     _df2 = st.session_state.results_df.copy()
                     _df2["_priority"] = _df2["Model"].map(MODEL_PRIORITY).fillna(10)
@@ -574,9 +576,9 @@ elif page == "📊 Model Comparison":
         try:
             _df3 = st.session_state.results_df.copy()
             MODEL_PRIORITY = {
-                "ANN": 1, "Random Forest": 2, "Logistic Regression": 3,
-                "SVM (RBF)": 4, "QDA": 5, "KNN": 6,
-                "Naive Bayes": 7, "SVM (Poly)": 8, "Decision Tree": 9
+                "Logistic Regression": 1, "SVM (RBF)": 2, "ANN": 3,
+                "Random Forest": 4, "QDA": 5, "KNN": 6,
+                "Naive Bayes": 7, "Decision Tree": 8, "SVM (Poly)": 9
             }
             _df3["_priority"] = _df3["Model"].map(MODEL_PRIORITY).fillna(10)
             results_df = _df3.sort_values(

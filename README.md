@@ -56,29 +56,32 @@ This project trains and evaluates multiple ML models and an ANN on ASD screening
 
 ---
 
-## 📊 Model Results (Test Set)
+## 📊 Model Results (Held-Out Test Set, n=195)
 
-| Model | Accuracy | F1 Score | ROC-AUC | Overfitting |
-|---|---|---|---|---|
-| **Logistic Regression** | **100.00%** | **1.0000** | **1.0000** | None |
-| **Decision Tree** | **100.00%** | **1.0000** | **1.0000** | None |
-| **Random Forest** | **100.00%** | **1.0000** | **1.0000** | None |
-| **ANN** | **100.00%** | **1.0000** | **1.0000** | None |
-| SVM (RBF) | 97.95% | 0.9857 | 0.9994 | None |
-| QDA | 96.92% | 0.9781 | 0.9978 | None |
-| KNN | 95.38% | 0.9663 | 0.9980 | None |
-| Naive Bayes | 94.36% | 0.9617 | 0.9905 | Mild |
-| SVM (Poly) | 69.74% | 0.7354 | 0.8781 | Moderate |
+All models are evaluated after target-leakage feature removal (`Qchat-10-Score`) and SMOTE training set rebalancing.
 
-> **Best Models: Logistic Regression, Decision Tree, Random Forest, ANN** — ROC-AUC: 1.0000, Accuracy: 100.00%  
-> Dataset: `Toddler Autism dataset July 2018.csv` (1,054 records)
+| Rank | Model | Test Accuracy | Precision | Recall | Specificity | F1 Score | ROC-AUC | Overfitting Status |
+|---|---|---|---|---|---|---|---|---|
+| 1 | **Logistic Regression** | **100.00%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | None (0.00% gap) |
+| 2 | **SVM (RBF)** | 94.87% | 0.9324 | 1.0000 | 0.8246 | 0.9650 | 0.9986 | Low (3.86% gap) |
+| 3 | **MLP-ANN** | 96.41% | 0.9645 | 0.9855 | 0.9123 | 0.9749 | 0.9968 | Low (2.41% gap) |
+| 4 | **QDA** | 96.92% | 0.9853 | 0.9710 | 0.9649 | 0.9781 | 0.9963 | Low (1.36% gap) |
+| 5 | **KNN** | 93.33% | 1.0000 | 0.9058 | 1.0000 | 0.9506 | 0.9962 | Low (1.69% gap) |
+| 6 | **Random Forest** | 93.85% | 0.9375 | 0.9783 | 0.8421 | 0.9574 | 0.9886 | Moderate (4.53% gap) |
+| 7 | **Naïve Bayes** | 92.31% | 0.9020 | 1.0000 | 0.7368 | 0.9485 | 0.9849 | Low (2.99% gap) |
+| 8 | **Decision Tree** | 89.74% | 0.9097 | 0.9493 | 0.7719 | 0.9291 | 0.9265 | Moderate (4.47% gap) |
+| 9 | **SVM (Poly)** | 75.38% | 0.9327 | 0.7029 | 0.8772 | 0.8017 | 0.8931 | Higher (8.16% gap) |
+
+> **Best Model:** Logistic Regression — **100.00% Accuracy, 100.00% Precision, 100.00% Recall, ROC-AUC: 1.0000**  
+> Dataset: `Toddler Autism dataset July 2018.csv` (1,054 records total; 195 test records)
 
 ---
 
 ## 🚀 How to Run
 
-is lesser thn ### 1. Install Dependencies
+### 1. Navigate to Project Directory & Install Dependencies
 ```bash
+cd autism-spectrum-detector2
 pip install -r requirements.txt
 ```
 
