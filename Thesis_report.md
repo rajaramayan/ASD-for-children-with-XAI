@@ -1,11 +1,11 @@
-# Thesis Report
+ Early Detection of Autism Spectrum Disorder in Children Using Machine Learning and Artificial Neural Networks along with XAI
 
-## Early Detection of Autism Spectrum Disorder in Children Using Machine Learning and Artificial Neural Networks
 
-**Author:** Mrs. Chhayachabbi Jha
-**Thesis Supervisor:** Prof. Raj Kumar Thakur
-**Email of Thesis Supervisor:** rajkshiva1@gmail.com
-**Date:** 11 May 2026
+
+
+**Author:** Prof. Raj Kumar Thakur
+**Email of Author:** rajkshiva1@gmail.com
+**Date:** 22 September 2026
 
 ## Abstract
 
