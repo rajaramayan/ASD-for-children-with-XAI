@@ -96,6 +96,7 @@ page = st.sidebar.radio(
         "🔍 Dataset Insights", 
         "🤖 Model Training", 
         "🔮 Make Prediction", 
+        "🎛️ What-If Analysis",
         "🚀 Batch Prediction", 
         "📊 Model Comparison"
     ]
@@ -848,7 +849,121 @@ elif page == "🚀 Batch Prediction":
                 st.error(f"Error processing CSV: {e}")
 
 # ==========================================
-# PAGE 5: MODEL COMPARISON
+# PAGE 5: WHAT-IF ANALYSIS
+# ==========================================
+elif page == "🎛️ What-If Analysis":
+    st.subheader("🎛️ What-If Analysis — Interactive Counterfactual Explorer")
+    st.write("""
+    Explore how changing individual patient features shifts the ASD prediction probability in real-time.
+    Adjust the **baseline** inputs on the left, then tweak the **modified scenario** on the right to 
+    instantly compare how each change affects the model's diagnosis and confidence.
+    """)
+
+    if 'scaler' not in st.session_state or 'trained_models' not in st.session_state:
+        st.warning("⚠️ Please train the models first on the 'Model Training' page")
+    else:
+        try:
+            feature_names = st.session_state.feature_names
+            best_classical_name = st.session_state.results_df.iloc[0]['Model']
+            if best_classical_name == "ANN":
+                best_classical_name = st.session_state.results_df[
+                    st.session_state.results_df['Model'] != 'ANN'
+                ].iloc[0]['Model']
+            best_model = st.session_state.trained_models[best_classical_name]
+
+            st.info(f"Using best model: **{best_classical_name}**")
+            st.markdown("---")
+
+            col_base, col_mod = st.columns(2)
+
+            def build_input_form(col, prefix, header):
+                with col:
+                    st.markdown(f"### {header}")
+                    vals = {}
+                    vals['A1'] = st.selectbox(f"A1: Eye contact", [0, 1], key=f"{prefix}_A1")
+                    vals['A2'] = st.selectbox(f"A2: Responds to name", [0, 1], key=f"{prefix}_A2")
+                    vals['A3'] = st.selectbox(f"A3: Points to indicate interest", [0, 1], key=f"{prefix}_A3")
+                    vals['A4'] = st.selectbox(f"A4: Points to show", [0, 1], key=f"{prefix}_A4")
+                    vals['A5'] = st.selectbox(f"A5: Pretend play", [0, 1], key=f"{prefix}_A5")
+                    vals['A6'] = st.selectbox(f"A6: Follows gaze", [0, 1], key=f"{prefix}_A6")
+                    vals['A7'] = st.selectbox(f"A7: Shows comforting", [0, 1], key=f"{prefix}_A7")
+                    vals['A8'] = st.selectbox(f"A8: First words", [0, 1], key=f"{prefix}_A8")
+                    vals['A9'] = st.selectbox(f"A9: Uses gestures", [0, 1], key=f"{prefix}_A9")
+                    vals['A10'] = st.selectbox(f"A10: Staring at nothing", [0, 1], key=f"{prefix}_A10")
+                    vals['Age_Mons'] = st.slider(f"Age (months)", 12, 36, 24, key=f"{prefix}_age")
+                    vals['Sex'] = st.selectbox(f"Sex", [0, 1], format_func=lambda x: 'Male' if x==0 else 'Female', key=f"{prefix}_sex")
+                    vals['Ethnicity'] = st.selectbox(f"Ethnicity (encoded)", list(range(11)), key=f"{prefix}_eth")
+                    vals['Jaundice'] = st.selectbox(f"Jaundice", [0, 1], format_func=lambda x: 'No' if x==0 else 'Yes', key=f"{prefix}_jaundice")
+                    vals['Family_mem_with_ASD'] = st.selectbox(f"Family member with ASD", [0, 1], format_func=lambda x: 'No' if x==0 else 'Yes', key=f"{prefix}_family")
+                    vals['Who completed the test'] = st.selectbox(f"Who completed the test (encoded)", list(range(5)), key=f"{prefix}_who")
+                return vals
+
+            base_vals = build_input_form(col_base, "base", "📋 Baseline Scenario")
+            mod_vals  = build_input_form(col_mod,  "mod",  "✏️ Modified Scenario")
+
+            st.markdown("---")
+
+            def predict_scenario(vals):
+                row = [vals.get(f, 0) for f in feature_names]
+                arr = np.array(row).reshape(1, -1)
+                arr_scaled = st.session_state.scaler.transform(arr)
+                pred = best_model.predict(arr_scaled)[0]
+                prob = best_model.predict_proba(arr_scaled)[0][1]
+                return pred, prob
+
+            base_pred, base_prob = predict_scenario(base_vals)
+            mod_pred,  mod_prob  = predict_scenario(mod_vals)
+
+            prob_delta = mod_prob - base_prob
+            delta_str  = f"{'+' if prob_delta >= 0 else ''}{prob_delta*100:.2f}%"
+            delta_color = "🔴" if prob_delta > 0 else "🟢"
+
+            res_col1, res_col2, res_col3 = st.columns(3)
+
+            with res_col1:
+                st.markdown("### 📋 Baseline Result")
+                label = "🔴 ASD Positive" if base_pred == 1 else "🟢 ASD Negative"
+                st.metric("Diagnosis", label)
+                st.metric("ASD Probability", f"{base_prob*100:.2f}%")
+
+            with res_col2:
+                st.markdown("### ✏️ Modified Result")
+                label2 = "🔴 ASD Positive" if mod_pred == 1 else "🟢 ASD Negative"
+                st.metric("Diagnosis", label2)
+                st.metric("ASD Probability", f"{mod_prob*100:.2f}%")
+
+            with res_col3:
+                st.markdown("### 📊 Impact of Change")
+                st.metric("Probability Shift", delta_str)
+                if base_pred == mod_pred:
+                    st.success("✅ Diagnosis **unchanged**")
+                else:
+                    st.warning(f"⚠️ Diagnosis **flipped** from {'ASD Positive' if base_pred==1 else 'ASD Negative'} → {'ASD Positive' if mod_pred==1 else 'ASD Negative'}")
+
+            # Visual bar chart comparison
+            st.markdown("---")
+            st.write("### Visual Probability Comparison")
+            fig_wif, ax_wif = plt.subplots(figsize=(6, 3))
+            scenarios = ['Baseline', 'Modified']
+            probs     = [base_prob * 100, mod_prob * 100]
+            colors    = ['#764ba2' if p >= 50 else '#667eea' for p in probs]
+            bars = ax_wif.barh(scenarios, probs, color=colors, height=0.4)
+            ax_wif.axvline(50, color='red', linestyle='--', linewidth=1, label='Decision Threshold (50%)')
+            ax_wif.set_xlim(0, 100)
+            ax_wif.set_xlabel("ASD Probability (%)")
+            ax_wif.legend()
+            for bar, prob in zip(bars, probs):
+                ax_wif.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2,
+                            f"{prob:.1f}%", va='center', fontweight='bold')
+            plt.tight_layout()
+            st.pyplot(fig_wif)
+            plt.clf()
+
+        except Exception as e:
+            st.error(f"Error in What-If Analysis: {e}")
+
+# ==========================================
+# PAGE 6: MODEL COMPARISON
 # ==========================================
 elif page == "📊 Model Comparison":
     st.subheader("📊 Model Comparison & Visualization")
