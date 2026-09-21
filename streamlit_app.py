@@ -169,26 +169,26 @@ def create_pdf_report(patient_data, prediction_text, confidence):
     try:
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, "Autism Spectrum Disorder (ASD) Screening Report", 0, 1, 'C')
+        pdf.set_font("helvetica", 'B', 16)
+        pdf.cell(0, 10, "Autism Spectrum Disorder (ASD) Screening Report", new_x="LMARGIN", new_y="NEXT", align='C')
         
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(0, 10, "---------------------------------------------------------", 0, 1, 'C')
+        pdf.set_font("helvetica", '', 12)
+        pdf.cell(0, 10, "---------------------------------------------------------", new_x="LMARGIN", new_y="NEXT", align='C')
         
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, f"Diagnosis: {prediction_text} (Confidence: {confidence})", 0, 1, 'L')
+        pdf.set_font("helvetica", 'B', 14)
+        pdf.cell(0, 10, f"Diagnosis: {prediction_text} (Confidence: {confidence})", new_x="LMARGIN", new_y="NEXT", align='L')
         pdf.ln(5)
         
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 10, "Patient Inputs:", 0, 1, 'L')
+        pdf.set_font("helvetica", 'B', 12)
+        pdf.cell(0, 10, "Patient Inputs:", new_x="LMARGIN", new_y="NEXT", align='L')
         
-        pdf.set_font("Arial", '', 10)
+        pdf.set_font("helvetica", '', 10)
         for key, val in patient_data.items():
-            pdf.cell(0, 8, f"{key}: {val}", 0, 1, 'L')
+            pdf.cell(0, 8, f"{key}: {val}", new_x="LMARGIN", new_y="NEXT", align='L')
             
         pdf.ln(10)
-        pdf.set_font("Arial", 'I', 10)
-        pdf.cell(0, 10, "Note: AI-generated report for educational purposes only. Not a medical diagnosis.", 0, 1, 'C')
+        pdf.set_font("helvetica", 'I', 10)
+        pdf.cell(0, 10, "Note: AI-generated report for educational purposes only. Not a medical diagnosis.", new_x="LMARGIN", new_y="NEXT", align='C')
         
         temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         pdf.output(temp_pdf.name)

@@ -37,11 +37,22 @@ Model performance was assessed using Accuracy, Precision, Recall, Specificity, F
 
 Experimental results demonstrate that **Logistic Regression achieved the highest overall performance** with a ROC-AUC of **1.0000**, test accuracy of **100.00%**, F1 Score of **1.0000**, and Log Loss of **0.0272** — the best-calibrated classifier on the Q-CHAT-10 toddler dataset. This result confirms the linear separability of the ten binary Q-CHAT-10 items ($A_1 \dots A_{10}$). The MLP-ANN with true early stopping achieved ROC-AUC of **0.9968** and test accuracy of **96.41%**, ranking third after SVM (RBF) (ROC-AUC: 0.9986). McNemar's test confirmed that the performance difference between ANN and Logistic Regression is statistically significant ($p = 0.0156 < 0.05$), validating the objective ranking. SVM (Polynomial) was the lowest-ranked model (ROC-AUC: 0.8931, Accuracy: 75.38%).
 
-The trained models were serialised using Python's pickle library and deployed as an interactive web application using Streamlit, enabling real-time ASD risk prediction based on user-provided screening inputs. The application loads the best model — **Logistic Regression**, selected by objective metrics — to provide clinical-grade screening predictions, alongside comprehensive model comparison visualisations including ROC curves, performance bar charts, overfitting analysis tables, and SMOTE ablation results.
+A critical and novel contribution of this work is the integration of **Explainable Artificial Intelligence (XAI)** techniques, addressing the "black-box" problem inherent in many machine learning systems — a major barrier to clinical adoption. Two complementary XAI methodologies were implemented and embedded directly into the prediction pipeline:
 
-This work demonstrates that a rigorous, statistically validated machine learning framework — combining target-leakage prevention, SMOTE class balancing, 10-fold cross-validation, McNemar significance testing, and GridSearchCV hyperparameter tuning — can achieve reliable and scientifically defensible ASD screening, potentially aiding clinicians and caregivers in identifying at-risk toddlers at a much earlier stage than traditional methods allow.
+- **SHAP (SHapley Additive exPlanations):** Using TreeExplainer for tree-based models and KernelExplainer for linear models, SHAP generates per-prediction waterfall plots that quantify the magnitude and direction of each feature's contribution to the model output, grounded in cooperative game theory. This enables clinicians to understand *why* a model predicted ASD risk for a specific patient.
+- **LIME (Local Interpretable Model-agnostic Explanations):** LIME constructs locally faithful linear approximations around each individual prediction. For every screening case, LIME identifies the most influential feature thresholds and presents them visually, providing an independent and model-agnostic confirmation of the SHAP explanations.
 
-**Keywords:** Autism Spectrum Disorder, ASD Screening, Machine Learning, Artificial Neural Network, MLP Classifier, Logistic Regression, Backpropagation, SMOTE, SMOTE Ablation, GridSearchCV, Hyperparameter Tuning, McNemar Test, 10-Fold Cross-Validation, Early Stopping, Target Leakage, Classification, Early Detection, Streamlit Deployment.
+The trained models were serialised using Python's pickle library and deployed as a comprehensive, interactive web application using Streamlit. Beyond basic prediction, the application was significantly enhanced with a suite of advanced clinical and analytical features:
+
+- **Interactive Exploratory Data Analysis (EDA) Dashboard:** An interactive "Dataset Insights" page powered by Plotly, featuring age distribution histograms, Q-CHAT-10 score box plots stratified by diagnosis, and a full feature correlation heatmap, enabling in-depth understanding of the dataset's underlying patterns.
+- **Downloadable Clinical PDF Reports:** Upon completing a prediction, users can download a formatted clinical PDF report containing the patient's screening inputs, the model's diagnosis, and the associated confidence score — suitable for record-keeping by healthcare professionals.
+- **Batch Prediction via CSV Upload:** A dedicated "Batch Prediction" page allows healthcare providers to upload a CSV file containing multiple patient records and receive predictions and confidence scores for all records simultaneously, making the system viable for large-scale clinical screening workflows.
+- **What-If Analysis:** The real-time prediction interface supports interactive counterfactual analysis, where clinicians can modify individual patient feature values and immediately re-run predictions to observe how specific behavioural traits shift the diagnostic probability and the corresponding XAI explanation plots.
+- **Premium Clinical Dashboard UI:** The application interface was redesigned with a modern, state-of-the-art aesthetic incorporating glassmorphism styling, gradient interactions, and smooth micro-animations, aligned with professional healthcare application standards.
+
+This work demonstrates that a rigorous, statistically validated machine learning framework — combining target-leakage prevention, SMOTE class balancing, 10-fold cross-validation, McNemar significance testing, GridSearchCV hyperparameter tuning, and dual-method XAI via SHAP and LIME — can achieve reliable, scientifically defensible, and clinically transparent ASD screening, potentially aiding clinicians and caregivers in identifying at-risk toddlers at a much earlier stage than traditional methods allow.
+
+**Keywords:** Autism Spectrum Disorder, ASD Screening, Machine Learning, Artificial Neural Network, MLP Classifier, Logistic Regression, Backpropagation, SMOTE, SMOTE Ablation, GridSearchCV, Hyperparameter Tuning, McNemar Test, 10-Fold Cross-Validation, Early Stopping, Target Leakage, Explainable AI, SHAP, LIME, XAI, Batch Prediction, EDA Dashboard, PDF Report, Clinical Deployment, Streamlit, Interactive Web Application.
 
 ## Table of Contents
 
@@ -2030,9 +2041,9 @@ This discussion chapter has interpreted the experimental results from Chapter 5 
 
 ### 7.1 Overview
 
-This thesis investigated the application of machine learning (ML) and artificial neural network (ANN) techniques for the early detection of Autism Spectrum Disorder (ASD) in children. The work was motivated by a critical clinical reality: ASD is significantly underdiagnosed and frequently diagnosed late in many children, with early diagnosis being the single most important factor in determining long-term developmental outcomes. The research was positioned as an answer to eleven identified research gaps in existing ASD screening AI literature — fragmented multi-model benchmarking (G1), unquantified overfitting (G2), small single-source datasets (G3), pre-split SMOTE leakage (G4), target leakage via pre-computed sum scores (G4b), absence of probabilistic/discriminant models (G5), lack of interactive multi-model deployment (G6), code transparency deficits (G7), default hyperparameter selection (G8), unprincipled ANN training without early stopping (G9), and absence of statistical significance testing (G10).
+This thesis investigated the application of machine learning (ML) and artificial neural network (ANN) techniques for the early detection of Autism Spectrum Disorder (ASD) in children, and subsequently extended the work into a comprehensive, clinically transparent, and feature-rich screening platform. The research was motivated by a critical clinical reality: ASD is significantly underdiagnosed and frequently diagnosed late in many children, with early diagnosis being the single most important factor in determining long-term developmental outcomes. The research was positioned as an answer to eleven identified research gaps in existing ASD screening AI literature — fragmented multi-model benchmarking (G1), unquantified overfitting (G2), small single-source datasets (G3), pre-split SMOTE leakage (G4), target leakage via pre-computed sum scores (G4b), absence of probabilistic/discriminant models (G5), lack of interactive multi-model deployment (G6), code transparency deficits (G7), default hyperparameter selection (G8), unprincipled ANN training without early stopping (G9), and absence of statistical significance testing (G10).
 
-The study addressed these gaps through a rigorous, multi-phase methodology: the Q-CHAT-10 toddler ASD screening dataset of 975 records, stratified train-test splitting, post-split SMOTE class balancing, StandardScaler normalisation, training of nine classifiers under regularised hyperparameter configurations, seven-metric evaluation with explicit overfitting gap reporting, and deployment as a publicly accessible Streamlit web application. The following sections summarise the principal conclusions drawn from the research.
+The study addressed these gaps through a rigorous, multi-phase methodology: the Q-CHAT-10 toddler ASD screening dataset of 975 records, stratified train-test splitting, post-split SMOTE class balancing, StandardScaler normalisation, training of nine classifiers under regularised hyperparameter configurations, seven-metric evaluation with explicit overfitting gap reporting, and deployment as a publicly accessible Streamlit web application. Beyond predictive performance, this thesis makes a significant and novel contribution by integrating **Explainable Artificial Intelligence (XAI)** — via SHAP and LIME — directly into the clinical prediction workflow, and by delivering five advanced application features: an interactive EDA dashboard, downloadable clinical PDF reports, batch prediction via CSV upload, What-If counterfactual analysis, and a premium clinical dashboard interface. The following sections summarise the principal conclusions drawn from the research.
 
 ### 7.2 Principal Findings
 
@@ -2066,6 +2077,16 @@ The application of SMOTE to the training partition produced balanced class repre
 
 The 16-feature set (ten Q-CHAT-10 behavioural items $A_1 \dots A_{10}$, Age\_Mons, Sex, Ethnicity, Jaundice, Family\_mem\_with\_ASD, and Who completed the test) proved remarkably informative across all nine models. Even the weakest model, SVM (Poly), achieved ROC-AUC of **0.8931** — substantially above the random baseline of 0.50. The `Qchat-10-Score` column (the arithmetic sum of $A_1 \dots A_{10}$) was intentionally excluded from the feature set to prevent **target leakage**: including it would trivially reveal the label, producing inflated accuracy that does not reflect real-world generalisation. With 16 non-leaky features, all nine models still achieve excellent discrimination, confirming the richness of the Q-CHAT-10 behavioural observation items for toddler ASD risk stratification.
 
+#### 7.2.6 Explainable AI Successfully Addresses the Clinical Black-Box Problem
+
+A major barrier to clinical adoption of any AI screening tool is the inability for clinicians and parents to understand *why* a particular prediction was made. This thesis directly addressed this limitation by integrating two complementary, state-of-the-art XAI frameworks:
+
+- **SHAP (SHapley Additive exPlanations):** For each individual prediction, SHAP generates a waterfall plot that quantifies — with mathematical rigour grounded in cooperative game theory — exactly how much each of the 16 input features pushed the model's output towards or away from an ASD-positive prediction. The use of `TreeExplainer` for tree-based models and `KernelExplainer` for linear models ensures method-appropriate explanation fidelity.
+
+- **LIME (Local Interpretable Model-agnostic Explanations):** LIME independently constructs a locally faithful, model-agnostic linear approximation around each prediction, identifying the specific feature thresholds that are most influential for that particular patient. Its model-agnostic nature provides an independent cross-validation of the SHAP explanation, strengthening clinical confidence in the output.
+
+Together, these two methods transform the system from a black-box predictor into a transparent clinical reasoning tool. This contribution directly addresses the growing regulatory and ethical demand for explainable medical AI.
+
 ### 7.3 Research Objectives — Achievement Summary
 
 | **Objective** | **Statement** | **Achievement** |
@@ -2076,10 +2097,12 @@ The 16-feature set (ten Q-CHAT-10 behavioural items $A_1 \dots A_{10}$, Age\_Mon
 | RO4 | Hyperparameter tuning & principled early stopping | ✅ 5-fold GridSearchCV applied to RF, SVM-RBF, DT, MLP-ANN; ANN early stopping (n\_iter\_no\_change=10) |
 | RO5 | Statistical validation & 10-fold cross-validation | ✅ 10-fold CV applied to all 9 models; McNemar test: LR vs ANN ($p = 0.0156$) — significant |
 | RO6 | End-to-end deployment as interactive web application | ✅ Streamlit app deployed; best model (LR) selected by objective metrics; ROC curves & ablation visualised |
+| RO7 | Explainable AI via SHAP and LIME | ✅ SHAP waterfall plots and LIME feature attribution plots integrated into the live prediction pipeline |
+| RO8 | Advanced clinical application features | ✅ EDA Dashboard, PDF Reports, Batch Prediction, What-If Analysis, and Premium UI all implemented |
 
-_Table 7.1: Research objective achievement summary — RO1–RO6._
+_Table 7.1: Research objective achievement summary — RO1–RO8._
 
-All six research objectives are fully achieved. The thesis makes both an empirical contribution (systematic benchmarking of nine models with hyperparameter tuning, cross-validation, and McNemar significance testing) and a practical contribution (a publicly deployed, interactive ASD risk screening tool with the best model selected by objective, statistically validated criteria).
+All eight research objectives are fully achieved. The thesis makes both an empirical contribution (systematic benchmarking of nine models with hyperparameter tuning, cross-validation, McNemar significance testing, and dual-method XAI) and a practical contribution (a publicly deployed, feature-rich clinical ASD screening platform with transparent, explainable predictions).
 
 ### 7.4 Contributions of the Thesis
 
@@ -2095,9 +2118,11 @@ The principal original contributions of this thesis to the ASD screening literat
 
 **C5 — Statistical Validation & Ablation:** Conducting a post-split SMOTE ablation study and applying McNemar's exact test ($p = 0.0156$) to mathematically confirm the statistically significant superiority of Logistic Regression over MLP-ANN.
 
-**C6 — Clinical deployment:** The Streamlit web application provides an immediately accessible, zero-installation ASD risk screening tool that is freely available to parents, educators, and healthcare providers. The application integrates all nine trained models, real-time prediction with calibrated confidence scores, ROC curves, and confusion matrix visualisation — a level of clinical and technical transparency unprecedented in comparable open-access tools.
+**C6 — Dual-Method Explainable AI (XAI):** Integrating both SHAP and LIME into the live clinical prediction interface is a novel contribution that directly addresses the black-box opacity problem in medical AI. Each prediction is accompanied by two independent, complementary explanations, providing a level of transparency that exceeds the vast majority of open-access ASD screening tools described in the literature. This directly addresses Recommendation R5 from the prior research gap analysis.
 
-**C7 — Reproducibility:** The complete training pipeline (data preprocessing, SMOTE, scaling, model training, evaluation, serialisation) is implemented in a single Python script with documented random seeds (random\_state=42 throughout), enabling full reproduction of all reported results.
+**C7 — Comprehensive Clinical Application Platform:** The Streamlit web application was enhanced far beyond a basic prediction interface. The contributions include: (a) an interactive **Exploratory Data Analysis (EDA) Dashboard** powered by Plotly, enabling clinicians and researchers to visually explore dataset distributions and feature correlations; (b) **Downloadable Clinical PDF Reports** that provide a permanent, shareable record of each screening session; (c) **Batch Prediction via CSV Upload**, enabling population-level screening of multiple patients simultaneously; (d) **What-If (Counterfactual) Analysis**, allowing clinicians to interactively modify patient feature values and observe how the prediction and XAI explanations update in real time; and (e) a **Premium Clinical Dashboard Interface** designed to professional healthcare application standards.
+
+**C8 — Reproducibility:** The complete training pipeline (data preprocessing, SMOTE, scaling, model training, evaluation, serialisation) is implemented in a single Python script with documented random seeds (random\_state=42 throughout), enabling full reproduction of all reported results.
 
 ### 7.5 Limitations Acknowledged
 
@@ -2109,6 +2134,8 @@ The following limitations are acknowledged and should guide the interpretation o
 - Fairness evaluation across demographic subgroups (sex, age, ethnicity) was not performed in this study and should be addressed in future work.
 - Brain imaging data such as MRI, fMRI, or CT scans were not included in the analysis.
 - The proposed system is intended for ASD screening and cannot replace professional clinical diagnosis.
+- SHAP explanations using `KernelExplainer` for linear models can be computationally intensive for large batch inputs; future work should optimise this for real-time clinical workflows.
+- LIME's locally faithful approximations are inherently stochastic; explanation stability across repeated calls may vary slightly and should be evaluated in future clinical validation studies.
 
 ### 7.6 Recommendations
 
@@ -2122,9 +2149,13 @@ Based on the findings of this thesis, the following recommendations are made for
 
 **R4 — Apply SMOTE post-split** in any future study using imbalanced ASD datasets to prevent synthetic sample leakage and ensure valid evaluation.
 
-**R5 — Integrate SHAP-based explainability** in the next iteration of the Streamlit application to identify per-patient feature contributions, increasing clinician trust and enabling targeted follow-up questioning.
+**R5 — Always accompany clinical AI predictions with XAI outputs.** This thesis has demonstrated that SHAP and LIME can be seamlessly integrated into a real-time prediction interface. Any future clinical AI tool in ASD or related domains should adopt dual-method XAI as a standard requirement, not an optional feature. This is now implemented in the application.
 
-**R6 — Conduct prospective clinical validation** of the deployed tool in a paediatric clinic setting, with gold-standard DSM-5 diagnostic confirmation, to establish real-world sensitivity and specificity beyond the retrospective dataset evaluation.
+**R6 — Leverage the Batch Prediction feature** for population-level screening in healthcare settings. The CSV upload facility enables rapid processing of multiple patient records, making the system viable for deployment in community health screening programmes, paediatric clinics, and large-scale epidemiological studies.
+
+**R7 — Utilise the What-If Analysis feature** during clinical training and education. The ability to interactively adjust patient feature values and observe real-time shifts in prediction probability and XAI explanations is a powerful educational tool for training healthcare professionals on the behavioural indicators of ASD.
+
+**R8 — Conduct prospective clinical validation** of the deployed tool in a paediatric clinic setting, with gold-standard DSM-5 diagnostic confirmation, to establish real-world sensitivity and specificity beyond the retrospective dataset evaluation.
 
 ### 7.7 Final Conclusion
 
@@ -2132,7 +2163,12 @@ Autism Spectrum Disorder is a lifelong neurodevelopmental condition whose trajec
 
 This thesis has demonstrated that a well-designed ML/ANN framework — combining a specialised Q-CHAT-10 toddler dataset, principled class imbalance handling, systematic regularisation, and rigorous seven-metric evaluation — can achieve **100.00% accuracy and ROC-AUC of 1.0000** with Logistic Regression for ASD risk stratification in toddlers, with a miss rate of 0.00% and an over-referral rate of 0.00%. These figures substantially exceed the performance of manually administered Q-CHAT-10 scoring in community settings (sensitivity ~86%, specificity ~72%) and surpass the best results reported in the prior five years of ASD screening AI literature.
 
-The Logistic Regression model, deployed within the publicly accessible Streamlit application alongside SVM (RBF) and MLP-ANN, is the first step toward a scalable, equitable, and transparent AI-assisted ASD toddler screening system. It is not a diagnostic oracle — it is a consistent, evidence-based triage aid designed to help the right toddlers reach specialist services faster. With the future directions outlined in Chapter 6 — explainability, fairness constraints, multi-modal features, and federated clinical validation — this work establishes a principled and reproducible foundation from which clinically impactful ASD screening AI can be built.
+Crucially, this thesis moves beyond predictive accuracy to confront the most important obstacle in clinical AI adoption: the **black-box problem**. By embedding both SHAP and LIME explanation frameworks directly into the prediction interface, every screening output is now accompanied by a clinically interpretable account of *which features drove the prediction and by how much*. This transparency is not merely an academic exercise — it is a fundamental requirement for any AI system that a clinician, parent, or regulator can meaningfully trust.
+
+The application platform itself represents a second major contribution: a professionally designed, feature-complete clinical screening system that goes far beyond a proof-of-concept. The interactive EDA dashboard helps researchers and educators understand the dataset's structure. The PDF report generator creates shareable clinical records. The batch prediction facility enables population-level screening. The What-If analysis interface supports clinical education and risk factor exploration. Together, these features demonstrate what a responsible, transparent, and practically useful clinical AI tool looks like in 2026.
+
+The Logistic Regression model, deployed within the publicly accessible Streamlit application alongside SVM (RBF), MLP-ANN, and six other classifiers — with SHAP and LIME explanations for every prediction — is a concrete and demonstrably effective step toward a scalable, equitable, and clinically transparent AI-assisted ASD toddler screening system. It is not a diagnostic oracle — it is a consistent, evidence-based, explainable triage aid designed to help the right toddlers reach specialist services faster. With the future directions outlined in Chapter 6 — fairness constraints, multi-modal features, federated clinical validation, and longitudinal follow-up — this work establishes a principled, reproducible, and clinically meaningful foundation from which genuinely impactful ASD screening AI can be built.
+
 
 ## References
 
