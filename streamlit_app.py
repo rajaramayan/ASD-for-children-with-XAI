@@ -851,109 +851,153 @@ elif page == "🚀 Batch Prediction":
 # ==========================================
 # PAGE 5: WHAT-IF ANALYSIS
 # ==========================================
-elif page == "🎛️ What-If Analysis":
-    st.subheader("🎛️ What-If Analysis — Interactive Counterfactual Explorer")
+elif page == "\U0001f39b\ufe0f What-If Analysis":
+    st.subheader("\U0001f39b\ufe0f What-If Analysis \u2014 Interactive Counterfactual Explorer")
     st.write("""
-    Explore how changing individual patient features shifts the ASD prediction probability in real-time.
-    Adjust the **baseline** inputs on the left, then tweak the **modified scenario** on the right to 
-    instantly compare how each change affects the model's diagnosis and confidence.
+    Explore how changing a **single feature** shifts the ASD prediction probability in real-time.
+    Set a **Baseline** patient profile on the left, then create a **Modified** version on the right.
+    The results update instantly!
     """)
 
     if 'scaler' not in st.session_state or 'trained_models' not in st.session_state:
-        st.warning("⚠️ Please train the models first on the 'Model Training' page")
+        st.warning("\u26a0\ufe0f Please train the models first on the 'Model Training' page")
     else:
         try:
-            feature_names = st.session_state.feature_names
-            best_classical_name = st.session_state.results_df.iloc[0]['Model']
-            if best_classical_name == "ANN":
-                best_classical_name = st.session_state.results_df[
-                    st.session_state.results_df['Model'] != 'ANN'
-                ].iloc[0]['Model']
-            best_model = st.session_state.trained_models[best_classical_name]
+            feature_names    = st.session_state.feature_names
+            df_encoded       = st.session_state.df_encoded
+            le_dict          = st.session_state.le_dict
+            categorical_cols = [col for col in st.session_state.categorical_cols
+                                 if col != df_encoded.columns[-1]]
 
-            st.info(f"Using best model: **{best_classical_name}**")
+            MODEL_PRIORITY = {
+                "Logistic Regression": 1, "SVM (RBF)": 2, "ANN": 3,
+                "Random Forest": 4, "QDA": 5, "KNN": 6,
+                "Naive Bayes": 7, "Decision Tree": 8, "SVM (Poly)": 9
+            }
+            _df_wif = st.session_state.results_df.copy()
+            _df_wif["_priority"] = _df_wif["Model"].map(MODEL_PRIORITY).fillna(10)
+            best_classical = _df_wif[_df_wif['Model'] != 'ANN'].sort_values(
+                by=["ROC-AUC", "_priority"], ascending=[False, True]
+            ).iloc[0]
+            best_model = st.session_state.trained_models[best_classical['Model']]
+
+            st.info(f"Using best model: **{best_classical['Model']}**")
             st.markdown("---")
+
+            FEATURE_LABELS = {"Age_Mons": "Age (Months)"}
+            FEATURE_HELP = {
+                "A1":  "Does your child look at you when you call his/her name?",
+                "A2":  "How easy is it for you to get eye contact with your child?",
+                "A3":  "Does your child point to indicate that s/he wants something?",
+                "A4":  "Does your child point to share interest with you?",
+                "A5":  "Does your child pretend? (e.g. care for dolls, talk on a toy phone)",
+                "A6":  "Does your child follow where you're looking?",
+                "A7":  "Does your child show signs of wanting to comfort others?",
+                "A8":  "Would you describe your child's first words as typical?",
+                "A9":  "Does your child use simple gestures? (e.g. wave goodbye)",
+                "A10": "Does your child stare at nothing with no apparent purpose?",
+            }
+
+            def build_feature_input(prefix, feature):
+                label    = FEATURE_LABELS.get(feature, feature)
+                help_txt = FEATURE_HELP.get(feature, None)
+                key      = f"wif_{prefix}_{feature}"
+                if feature in categorical_cols and feature in le_dict:
+                    classes = list(le_dict[feature].classes_)
+                    if len(classes) == 2:
+                        sel = st.radio(label, options=classes, horizontal=True,
+                                       help=help_txt, key=key)
+                    elif feature == "Ethnicity":
+                        sel = st.radio(label, options=classes, help=help_txt, key=key)
+                    else:
+                        sel = st.selectbox(label, options=classes, help=help_txt, key=key)
+                    return int(le_dict[feature].transform([sel])[0])
+                else:
+                    min_val     = int(df_encoded[feature].min())
+                    max_val     = int(df_encoded[feature].max())
+                    default_val = (min_val + max_val) // 2
+                    if min_val == 0 and max_val == 1:
+                        return st.radio(label, options=[0, 1], horizontal=True,
+                                        format_func=lambda x: "Yes" if x == 1 else "No",
+                                        help=help_txt, key=key)
+                    else:
+                        return st.slider(label, min_value=min_val, max_value=max_val,
+                                         value=default_val, step=1, help=help_txt, key=key)
 
             col_base, col_mod = st.columns(2)
 
-            def build_input_form(col, prefix, header):
-                with col:
-                    st.markdown(f"### {header}")
-                    vals = {}
-                    vals['A1'] = st.selectbox(f"A1: Eye contact", [0, 1], key=f"{prefix}_A1")
-                    vals['A2'] = st.selectbox(f"A2: Responds to name", [0, 1], key=f"{prefix}_A2")
-                    vals['A3'] = st.selectbox(f"A3: Points to indicate interest", [0, 1], key=f"{prefix}_A3")
-                    vals['A4'] = st.selectbox(f"A4: Points to show", [0, 1], key=f"{prefix}_A4")
-                    vals['A5'] = st.selectbox(f"A5: Pretend play", [0, 1], key=f"{prefix}_A5")
-                    vals['A6'] = st.selectbox(f"A6: Follows gaze", [0, 1], key=f"{prefix}_A6")
-                    vals['A7'] = st.selectbox(f"A7: Shows comforting", [0, 1], key=f"{prefix}_A7")
-                    vals['A8'] = st.selectbox(f"A8: First words", [0, 1], key=f"{prefix}_A8")
-                    vals['A9'] = st.selectbox(f"A9: Uses gestures", [0, 1], key=f"{prefix}_A9")
-                    vals['A10'] = st.selectbox(f"A10: Staring at nothing", [0, 1], key=f"{prefix}_A10")
-                    vals['Age_Mons'] = st.slider(f"Age (months)", 12, 36, 24, key=f"{prefix}_age")
-                    vals['Sex'] = st.selectbox(f"Sex", [0, 1], format_func=lambda x: 'Male' if x==0 else 'Female', key=f"{prefix}_sex")
-                    vals['Ethnicity'] = st.selectbox(f"Ethnicity (encoded)", list(range(11)), key=f"{prefix}_eth")
-                    vals['Jaundice'] = st.selectbox(f"Jaundice", [0, 1], format_func=lambda x: 'No' if x==0 else 'Yes', key=f"{prefix}_jaundice")
-                    vals['Family_mem_with_ASD'] = st.selectbox(f"Family member with ASD", [0, 1], format_func=lambda x: 'No' if x==0 else 'Yes', key=f"{prefix}_family")
-                    vals['Who completed the test'] = st.selectbox(f"Who completed the test (encoded)", list(range(5)), key=f"{prefix}_who")
-                return vals
+            base_vals = {}
+            mod_vals  = {}
 
-            base_vals = build_input_form(col_base, "base", "📋 Baseline Scenario")
-            mod_vals  = build_input_form(col_mod,  "mod",  "✏️ Modified Scenario")
+            with col_base:
+                st.markdown("### \U0001f4cb Baseline Scenario")
+                for feature in feature_names:
+                    base_vals[feature] = build_feature_input("base", feature)
 
-            st.markdown("---")
+            with col_mod:
+                st.markdown("### \u270f\ufe0f Modified Scenario")
+                if st.button("📋 Copy Baseline to Modified", key="wif_sync_btn"):
+                    for feature in feature_names:
+                        if f"wif_base_{feature}" in st.session_state:
+                            st.session_state[f"wif_mod_{feature}"] = st.session_state[f"wif_base_{feature}"]
+                    st.rerun()
+                for feature in feature_names:
+                    mod_vals[feature] = build_feature_input("mod", feature)
 
             def predict_scenario(vals):
-                row = [vals.get(f, 0) for f in feature_names]
-                arr = np.array(row).reshape(1, -1)
-                arr_scaled = st.session_state.scaler.transform(arr)
-                pred = best_model.predict(arr_scaled)[0]
-                prob = best_model.predict_proba(arr_scaled)[0][1]
+                input_df = pd.DataFrame(
+                    [{f: float(vals[f]) for f in feature_names}], columns=feature_names
+                )
+                scaled = st.session_state.scaler.transform(input_df)
+                pred   = best_model.predict(scaled)[0]
+                prob   = best_model.predict_proba(scaled)[0][1]
                 return pred, prob
+
+            st.markdown("---")
+            st.subheader("\U0001f4ca Live Results")
 
             base_pred, base_prob = predict_scenario(base_vals)
             mod_pred,  mod_prob  = predict_scenario(mod_vals)
 
             prob_delta = mod_prob - base_prob
             delta_str  = f"{'+' if prob_delta >= 0 else ''}{prob_delta*100:.2f}%"
-            delta_color = "🔴" if prob_delta > 0 else "🟢"
 
             res_col1, res_col2, res_col3 = st.columns(3)
 
             with res_col1:
-                st.markdown("### 📋 Baseline Result")
-                label = "🔴 ASD Positive" if base_pred == 1 else "🟢 ASD Negative"
-                st.metric("Diagnosis", label)
+                st.markdown("#### \U0001f4cb Baseline Result")
+                st.metric("Diagnosis", "\U0001f534 ASD Positive" if base_pred == 1 else "\U0001f7e2 ASD Negative")
                 st.metric("ASD Probability", f"{base_prob*100:.2f}%")
 
             with res_col2:
-                st.markdown("### ✏️ Modified Result")
-                label2 = "🔴 ASD Positive" if mod_pred == 1 else "🟢 ASD Negative"
-                st.metric("Diagnosis", label2)
-                st.metric("ASD Probability", f"{mod_prob*100:.2f}%")
+                st.markdown("#### \u270f\ufe0f Modified Result")
+                st.metric("Diagnosis", "\U0001f534 ASD Positive" if mod_pred == 1 else "\U0001f7e2 ASD Negative")
+                st.metric("ASD Probability", f"{mod_prob*100:.2f}%", delta=delta_str)
 
             with res_col3:
-                st.markdown("### 📊 Impact of Change")
+                st.markdown("#### \U0001f4ca Impact")
                 st.metric("Probability Shift", delta_str)
                 if base_pred == mod_pred:
-                    st.success("✅ Diagnosis **unchanged**")
+                    st.success("\u2705 Diagnosis **unchanged**")
                 else:
-                    st.warning(f"⚠️ Diagnosis **flipped** from {'ASD Positive' if base_pred==1 else 'ASD Negative'} → {'ASD Positive' if mod_pred==1 else 'ASD Negative'}")
+                    from_lbl = 'ASD Positive' if base_pred == 1 else 'ASD Negative'
+                    to_lbl   = 'ASD Positive' if mod_pred  == 1 else 'ASD Negative'
+                    st.warning(f"\u26a0\ufe0f Diagnosis **flipped**: {from_lbl} \u2192 {to_lbl}")
 
-            # Visual bar chart comparison
             st.markdown("---")
             st.write("### Visual Probability Comparison")
-            fig_wif, ax_wif = plt.subplots(figsize=(6, 3))
-            scenarios = ['Baseline', 'Modified']
-            probs     = [base_prob * 100, mod_prob * 100]
-            colors    = ['#764ba2' if p >= 50 else '#667eea' for p in probs]
-            bars = ax_wif.barh(scenarios, probs, color=colors, height=0.4)
-            ax_wif.axvline(50, color='red', linestyle='--', linewidth=1, label='Decision Threshold (50%)')
+            fig_wif, ax_wif = plt.subplots(figsize=(7, 2.5))
+            probs_pct = [base_prob * 100, mod_prob * 100]
+            colors    = ['#764ba2' if p >= 50 else '#667eea' for p in probs_pct]
+            bars = ax_wif.barh(['Baseline', 'Modified'], probs_pct, color=colors, height=0.4)
+            ax_wif.axvline(50, color='red', linestyle='--', linewidth=1.2,
+                           label='Decision Threshold (50%)')
             ax_wif.set_xlim(0, 100)
             ax_wif.set_xlabel("ASD Probability (%)")
-            ax_wif.legend()
-            for bar, prob in zip(bars, probs):
-                ax_wif.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2,
+            ax_wif.legend(fontsize=9)
+            for bar, prob in zip(bars, probs_pct):
+                ax_wif.text(min(bar.get_width() + 1, 92),
+                            bar.get_y() + bar.get_height() / 2,
                             f"{prob:.1f}%", va='center', fontweight='bold')
             plt.tight_layout()
             st.pyplot(fig_wif)
@@ -961,6 +1005,7 @@ elif page == "🎛️ What-If Analysis":
 
         except Exception as e:
             st.error(f"Error in What-If Analysis: {e}")
+
 
 # ==========================================
 # PAGE 6: MODEL COMPARISON
