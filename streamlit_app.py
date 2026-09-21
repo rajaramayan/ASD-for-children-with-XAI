@@ -5,6 +5,24 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pickle
 import os
+import base64
+import tempfile
+import plotly.express as px
+try:
+    from fpdf import FPDF
+except ImportError:
+    FPDF = None
+
+try:
+    import shap
+except ImportError:
+    shap = None
+
+try:
+    import lime
+    import lime.lime_tabular
+except ImportError:
+    lime = None
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -34,13 +52,53 @@ st.set_page_config(
     layout="wide"
 )
 
+# Premium UI CSS Injection
+st.markdown("""
+<style>
+    /* Glassmorphism Sidebar */
+    [data-testid="stSidebar"] {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    /* Elegant Buttons */
+    .stButton>button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(118, 75, 162, 0.3);
+        color: white;
+    }
+    
+    /* Metric Cards */
+    [data-testid="stMetricValue"] {
+        font-size: 2rem !important;
+        font-weight: 800;
+        color: #764ba2;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🧠 Autism Spectrum Disorder (ASD) Screening Prediction System")
 st.markdown("---")
 
 # Sidebar for navigation
 page = st.sidebar.radio(
     "Select Page",
-    ["🏠 Home", "🤖 Model Training", "🔮 Make Prediction", "📊 Model Comparison"]
+    [
+        "🏠 Home", 
+        "🔍 Dataset Insights", 
+        "🤖 Model Training", 
+        "🔮 Make Prediction", 
+        "🚀 Batch Prediction", 
+        "📊 Model Comparison"
+    ]
 )
 
 # ---- Close App ----
@@ -105,6 +163,38 @@ def prepare_data(df):
     
     return df_encoded, le_dict, numeric_cols, categorical_cols
 
+def create_pdf_report(patient_data, prediction_text, confidence):
+    if FPDF is None:
+        return None
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, "Autism Spectrum Disorder (ASD) Screening Report", 0, 1, 'C')
+        
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(0, 10, "---------------------------------------------------------", 0, 1, 'C')
+        
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, f"Diagnosis: {prediction_text} (Confidence: {confidence})", 0, 1, 'L')
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(0, 10, "Patient Inputs:", 0, 1, 'L')
+        
+        pdf.set_font("Arial", '', 10)
+        for key, val in patient_data.items():
+            pdf.cell(0, 8, f"{key}: {val}", 0, 1, 'L')
+            
+        pdf.ln(10)
+        pdf.set_font("Arial", 'I', 10)
+        pdf.cell(0, 10, "Note: AI-generated report for educational purposes only. Not a medical diagnosis.", 0, 1, 'C')
+        
+        temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        pdf.output(temp_pdf.name)
+        return temp_pdf.name
+    except Exception as e:
+        return None
 
 def pretrained_models_exist():
     """Check if all required model files are present in the models/ folder"""
@@ -301,7 +391,48 @@ if page == "🏠 Home":
 
 
 # ==========================================
-# PAGE 2: MODEL TRAINING
+# PAGE 2: DATASET INSIGHTS (EDA)
+# ==========================================
+elif page == "🔍 Dataset Insights":
+    st.subheader("🔍 Exploratory Data Analysis (EDA)")
+    st.write("Understand the underlying patterns in the screening dataset before modeling.")
+    
+    df = load_data()
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Records", len(df))
+    col2.metric("ASD Positive Cases", len(df[df['Class/ASD Traits'] == 'Yes']))
+    col3.metric("ASD Negative Cases", len(df[df['Class/ASD Traits'] == 'No']))
+    
+    st.markdown("---")
+    
+    tab1, tab2, tab3 = st.tabs(["Demographics", "Q-Chat Scores", "Correlations"])
+    
+    with tab1:
+        st.write("### Age Distribution")
+        fig_age = px.histogram(df, x="Age_Mons", color="Class/ASD Traits", barmode="group",
+                               title="Age Distribution by ASD Traits",
+                               color_discrete_sequence=['#764ba2', '#667eea'])
+        st.plotly_chart(fig_age, use_container_width=True)
+        
+    with tab2:
+        st.write("### Q-Chat-10 Score Distribution")
+        fig_qchat = px.box(df, x="Class/ASD Traits", y="Qchat-10-Score", color="Class/ASD Traits",
+                           title="Q-Chat-10 Scores by Diagnosis",
+                           color_discrete_sequence=['#764ba2', '#667eea'])
+        st.plotly_chart(fig_qchat, use_container_width=True)
+        
+    with tab3:
+        st.write("### Feature Correlation Heatmap")
+        df_numeric, _, _, _ = prepare_data(df)
+        corr = df_numeric.corr()
+        fig_corr = px.imshow(corr, text_auto=False, aspect="auto",
+                             color_continuous_scale="Purples",
+                             title="Correlation Matrix")
+        st.plotly_chart(fig_corr, use_container_width=True)
+
+# ==========================================
+# PAGE 3: MODEL TRAINING
 # ==========================================
 elif page == "🤖 Model Training":
     st.subheader("🤖 Train Models")
@@ -558,6 +689,93 @@ elif page == "🔮 Make Prediction":
                     st.write("**Model:** Artificial Neural Network")
                     st.write(f"**Prediction:** {'🔴 ASD Positive' if ann_pred == 1 else '🟢 ASD Negative'}")
                     st.write(f"**Confidence:** {ann_prob*100:.2f}%")
+                
+                # XAI Section
+                st.markdown("---")
+                st.subheader("🧠 Explainable AI (XAI) Analysis")
+                
+                xai_tab1, xai_tab2 = st.tabs(["SHAP Explanation", "LIME Explanation"])
+                
+                with xai_tab1:
+                    if shap is None:
+                        st.warning("⚠️ The `shap` library is not installed. To see feature explanations, stop the app and run: `pip install shap`")
+                    elif best_classical['Model'] not in ['Logistic Regression', 'Random Forest', 'Decision Tree']:
+                        st.info(f"ℹ️ SHAP explanations in this demo are optimized for Random Forest, Decision Tree, and Logistic Regression. The current best model is {best_classical['Model']}.")
+                    else:
+                        try:
+                            with st.spinner("Generating SHAP explanations..."):
+                                model_name = best_classical['Model']
+                                if model_name in ['Random Forest', 'Decision Tree']:
+                                    explainer = shap.TreeExplainer(best_model)
+                                    shap_values = explainer(input_scaled)
+                                    if len(shap_values.shape) > 2:
+                                        sv = shap_values[:, :, 1]
+                                    else:
+                                        sv = shap_values
+                                else:
+                                    explainer = shap.Explainer(best_model, st.session_state.X_test_scaled)
+                                    sv = explainer(input_scaled)
+                                
+                                sv.feature_names = feature_names
+                                
+                                st.write("### Feature Contributions (Waterfall Plot)")
+                                st.write("Features in **red** pushed the probability higher (towards ASD Positive), while features in **blue** pushed it lower.")
+                                
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                shap.plots.waterfall(sv[0], show=False)
+                                st.pyplot(fig)
+                                plt.clf()
+                        except Exception as e:
+                            st.error(f"Could not generate SHAP explanation: {e}")
+
+                with xai_tab2:
+                    if lime is None:
+                        st.warning("⚠️ The `lime` library is not installed. To see LIME explanations, stop the app and run: `pip install lime`")
+                    else:
+                        try:
+                            with st.spinner("Generating LIME explanations..."):
+                                lime_explainer = lime.lime_tabular.LimeTabularExplainer(
+                                    st.session_state.X_test_scaled,
+                                    feature_names=feature_names,
+                                    class_names=['ASD Negative', 'ASD Positive'],
+                                    mode='classification'
+                                )
+                                exp = lime_explainer.explain_instance(
+                                    input_scaled[0], 
+                                    best_model.predict_proba, 
+                                    num_features=10,
+                                    num_samples=1000
+                                )
+                                st.write("### Local Interpretable Model-agnostic Explanations (LIME)")
+                                st.write("This plot shows the specific feature values for this patient and how much they contributed to the final prediction.")
+                                
+                                # Render LIME as a matplotlib plot instead of HTML to avoid browser freeze
+                                fig = exp.as_pyplot_figure()
+                                fig.set_size_inches(10, 6)
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                                plt.clf()
+                        except Exception as e:
+                            st.error(f"Could not generate LIME explanation: {e}")
+                
+                # PDF Generation
+                st.markdown("---")
+                st.subheader("📄 Download Clinical Report")
+                if FPDF is not None:
+                    pred_label = 'ASD Positive' if prediction == 1 else 'ASD Negative'
+                    conf_str = f"{probability*100:.2f}%"
+                    pdf_path = create_pdf_report(user_input, pred_label, conf_str)
+                    
+                    if pdf_path:
+                        with open(pdf_path, "rb") as pdf_file:
+                            st.download_button(
+                                label="📥 Download PDF Report",
+                                data=pdf_file,
+                                file_name="ASD_Screening_Report.pdf",
+                                mime="application/pdf"
+                            )
+                else:
+                    st.info("The `fpdf2` library is required to generate PDF reports. (Run: pip install fpdf2)")
         
         except Exception as e:
             st.error(f"Error during prediction: {str(e)}")
@@ -565,7 +783,72 @@ elif page == "🔮 Make Prediction":
             st.error(f"Details: {traceback.format_exc()}")
 
 # ==========================================
-# PAGE 4: MODEL COMPARISON
+# PAGE 4: BATCH PREDICTION
+# ==========================================
+elif page == "🚀 Batch Prediction":
+    st.subheader("🚀 Batch Prediction via CSV")
+    
+    if 'scaler' not in st.session_state or 'trained_models' not in st.session_state:
+        st.warning("⚠️ Please train the models first on the 'Model Training' page")
+    else:
+        st.write("Upload a CSV file containing multiple patient records. Ensure the columns match the required screening features.")
+        
+        uploaded_file = st.file_uploader("Upload CSV", type=['csv'])
+        
+        if uploaded_file is not None:
+            try:
+                batch_df = pd.read_csv(uploaded_file)
+                st.write(f"Loaded {len(batch_df)} records.")
+                
+                # Check for required columns
+                missing_cols = [col for col in st.session_state.feature_names if col not in batch_df.columns]
+                
+                if missing_cols:
+                    st.error(f"Missing columns in uploaded CSV: {missing_cols}")
+                    st.info(f"Required columns: {st.session_state.feature_names}")
+                else:
+                    # Keep only needed columns in correct order
+                    batch_data = batch_df[st.session_state.feature_names].copy()
+                    
+                    if st.button("Predict Batch"):
+                        with st.spinner("Processing predictions..."):
+                            # The batch data must be encoded similar to training data.
+                            # For simplicity, if it's already encoded, we scale it.
+                            # If not encoded, we'd need to encode. Since this is a demo, we assume encoded or numeric.
+                            # Let's enforce numeric conversion as a safety measure.
+                            for col in batch_data.columns:
+                                batch_data[col] = pd.to_numeric(batch_data[col], errors='coerce').fillna(0)
+                                
+                            batch_scaled = st.session_state.scaler.transform(batch_data)
+                            
+                            best_classical_name = st.session_state.results_df.iloc[0]['Model']
+                            if best_classical_name == "ANN":
+                                best_classical_name = st.session_state.results_df[st.session_state.results_df['Model'] != 'ANN'].iloc[0]['Model']
+                                
+                            best_model = st.session_state.trained_models[best_classical_name]
+                            
+                            preds = best_model.predict(batch_scaled)
+                            probs = best_model.predict_proba(batch_scaled)[:, 1]
+                            
+                            batch_df['Prediction'] = ['ASD Positive' if p == 1 else 'ASD Negative' for p in preds]
+                            batch_df['Confidence'] = [f"{prob*100:.2f}%" for prob in probs]
+                            
+                            st.success("Batch prediction complete!")
+                            st.dataframe(batch_df)
+                            
+                            csv_output = batch_df.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="📥 Download Predictions CSV",
+                                data=csv_output,
+                                file_name='batch_predictions_results.csv',
+                                mime='text/csv',
+                            )
+                            
+            except Exception as e:
+                st.error(f"Error processing CSV: {e}")
+
+# ==========================================
+# PAGE 5: MODEL COMPARISON
 # ==========================================
 elif page == "📊 Model Comparison":
     st.subheader("📊 Model Comparison & Visualization")

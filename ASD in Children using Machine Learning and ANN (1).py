@@ -317,6 +317,60 @@ print("\nBEST MODEL:")
 print(results_df_sorted.iloc[0])
 
 # ==========================================
+# 15.5 EXPLAINABLE AI (XAI) WITH SHAP
+# ==========================================
+print("\nGenerating SHAP Explainable AI (XAI) Analysis...")
+try:
+    import shap
+    
+    # Let's generate SHAP explanations for the best classical model. 
+    # If ANN is the best, we'll explain the top classical model (or Random Forest) 
+    # since tree/linear models are more straightforward with SHAP.
+    model_to_explain_name = best_model_name
+    if model_to_explain_name == "ANN":
+        model_to_explain_name = results_df_sorted[results_df_sorted["Model"] != "ANN"].iloc[0]["Model"]
+        print(f"  Note: Best model is ANN. Using {model_to_explain_name} for SHAP global explanation.")
+    
+    model_to_explain = trained_models[model_to_explain_name]
+    
+    if model_to_explain_name in ['Random Forest', 'Decision Tree']:
+        explainer = shap.TreeExplainer(model_to_explain)
+        shap_values = explainer(X_test_scaled)
+        if len(shap_values.shape) > 2:
+            # Multi-class output (ASD Positive is class 1)
+            sv = shap_values[:, :, 1]
+        else:
+            sv = shap_values
+    else:
+        # Linear/Logistic Regression, SVM, etc.
+        explainer = shap.Explainer(model_to_explain, X_train_scaled)
+        sv = explainer(X_test_scaled)
+        
+    sv.feature_names = feature_names
+    
+    # 1. Generate Global Summary Plot (Beeswarm)
+    plt.figure(figsize=(10, 8))
+    shap.summary_plot(sv, X_test_scaled, feature_names=feature_names, show=False)
+    plt.tight_layout()
+    plt.savefig("shap_summary_plot.png", dpi=300)
+    plt.close()
+    
+    # 2. Generate Feature Importance Bar Plot
+    plt.figure(figsize=(10, 8))
+    shap.plots.bar(sv, show=False)
+    plt.tight_layout()
+    plt.savefig("shap_feature_importance_bar.png", dpi=300)
+    plt.close()
+    
+    print("  -> Saved 'shap_summary_plot.png'")
+    print("  -> Saved 'shap_feature_importance_bar.png'")
+    
+except ImportError:
+    print("  -> SHAP library not found. Skipping XAI plots. (Run: pip install shap)")
+except Exception as e:
+    print(f"  -> Could not generate SHAP explanation: {e}")
+
+# ==========================================
 # 16. SAVE ALL MODELS & ARTIFACTS TO DISK
 # ==========================================
 os.makedirs(MODELS_DIR, exist_ok=True)

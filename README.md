@@ -15,15 +15,15 @@ GitHub: [rajaramayan](https://github.com/rajaramayan)
 
 ## 📌 Project Overview
 
-This project trains and evaluates multiple ML models and an ANN on ASD screening data. The best-performing model can then be used for real-time predictions via an interactive Streamlit web application.
+This project trains and evaluates multiple ML models and an ANN on ASD screening data. The best-performing model can then be used for real-time predictions via an interactive Streamlit web application. Additionally, it integrates **Explainable AI (XAI)** using SHAP (SHapley Additive exPlanations) to provide transparent, feature-level insights into how the models arrive at their predictions both globally and per-patient.
 
 ---
 
 ## 🗂️ Project Structure
 
 ```
-├── ASD in Children using Machine Learning and ANN (1).py   # Local training script
-├── streamlit_app.py                                         # Streamlit web app
+├── ASD in Children using Machine Learning and ANN (1).py   # Local training script (with SHAP XAI)
+├── streamlit_app.py                                         # Streamlit web app (with SHAP XAI)
 ├── Toddler Autism dataset July 2018.csv                           # Dataset (1054 records)
 ├── models/                                                  # Saved model artifacts
 │   ├── trained_models.pkl                                   # All 8 ML models
@@ -89,7 +89,7 @@ pip install -r requirements.txt
 ```bash
 python "ASD in Children using Machine Learning and ANN (1).py"
 ```
-This trains all 9 models, prints evaluation metrics, shows plots, and saves all model artifacts to the `models/` folder.
+This trains all 9 models, prints evaluation metrics, shows plots, generates global SHAP Explainable AI charts (`shap_summary_plot.png`, `shap_feature_importance_bar.png`), and saves all model artifacts to the `models/` folder.
 
 ### 3. Launch the Streamlit App
 ```bash
@@ -103,7 +103,7 @@ Go to **🤖 Model Training** → click **📂 Load Pre-trained Models**.
 
 - **🏠 Home** — Project overview and usage guide
 - **🤖 Model Training** — Load pre-trained models or train in-browser
-- **🔮 Make Prediction** — Enter patient screening values and get ASD prediction
+- **🔮 Make Prediction** — Enter patient screening values and get ASD prediction, accompanied by a **SHAP Waterfall Plot** to explain the reasoning behind the specific prediction.
 - **📊 Model Comparison** — ROC curves, bar charts, performance metrics table
 
 ---
@@ -121,7 +121,7 @@ Go to **🤖 Model Training** → click **📂 Load Pre-trained Models**.
 ## 🛠️ Tech Stack
 
 - Python 3.10
-- scikit-learn, imbalanced-learn
+- scikit-learn, imbalanced-learn, shap (SHAP)
 - Streamlit
 - NumPy, Pandas, Matplotlib, Seaborn
 
