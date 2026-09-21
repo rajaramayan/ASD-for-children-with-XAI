@@ -854,9 +854,8 @@ elif page == "🚀 Batch Prediction":
 elif page == "\U0001f39b\ufe0f What-If Analysis":
     st.subheader("\U0001f39b\ufe0f What-If Analysis \u2014 Interactive Counterfactual Explorer")
     st.write("""
-    Explore how changing a **single feature** shifts the ASD prediction probability in real-time.
-    Set a **Baseline** patient profile on the left, then create a **Modified** version on the right.
-    The results update instantly!
+    Explore how changing patient traits shifts the ASD prediction probability in real-time.
+    Configure a **Baseline Scenario** patient profile (or load a sample preset), then adjust target features to observe the exact counterfactual impact.
     """)
 
     if 'scaler' not in st.session_state or 'trained_models' not in st.session_state:
@@ -882,6 +881,46 @@ elif page == "\U0001f39b\ufe0f What-If Analysis":
             best_model = st.session_state.trained_models[best_classical['Model']]
 
             st.info(f"Using best model: **{best_classical['Model']}**")
+
+            # Presets & Mode header
+            preset_col1, preset_col2 = st.columns([2, 1])
+            with preset_col1:
+                preset_choice = st.selectbox(
+                    "\U0001f4c1 Load Patient Preset into Baseline (Optional)",
+                    ["Custom Configuration", "Sample ASD Positive Patient", "Sample ASD Negative Patient"],
+                    key="wif_preset_choice"
+                )
+            with preset_col2:
+                mode = st.radio(
+                    "Analysis Mode",
+                    ["\U0001f3af Single Feature Counterfactual", "\u270f\ufe0f Custom Multi-Feature"],
+                    key="wif_mode"
+                )
+
+            # Handle Preset Auto-fill into session state for Baseline
+            if preset_choice == "Sample ASD Positive Patient":
+                pos_idx = df_encoded[df_encoded['Class/ASD Traits'] == 1].index
+                if len(pos_idx) > 0:
+                    sample_row = df_encoded.loc[pos_idx[0]]
+                    for f in feature_names:
+                        val = sample_row[f]
+                        if f in categorical_cols and f in le_dict:
+                            str_val = le_dict[f].inverse_transform([int(val)])[0]
+                            st.session_state[f"wif_base_{f}"] = str_val
+                        else:
+                            st.session_state[f"wif_base_{f}"] = int(val)
+            elif preset_choice == "Sample ASD Negative Patient":
+                neg_idx = df_encoded[df_encoded['Class/ASD Traits'] == 0].index
+                if len(neg_idx) > 0:
+                    sample_row = df_encoded.loc[neg_idx[0]]
+                    for f in feature_names:
+                        val = sample_row[f]
+                        if f in categorical_cols and f in le_dict:
+                            str_val = le_dict[f].inverse_transform([int(val)])[0]
+                            st.session_state[f"wif_base_{f}"] = str_val
+                        else:
+                            st.session_state[f"wif_base_{f}"] = int(val)
+
             st.markdown("---")
 
             FEATURE_LABELS = {"Age_Mons": "Age (Months)"}
@@ -936,13 +975,46 @@ elif page == "\U0001f39b\ufe0f What-If Analysis":
 
             with col_mod:
                 st.markdown("### \u270f\ufe0f Modified Scenario")
-                if st.button("📋 Copy Baseline to Modified", key="wif_sync_btn"):
+                if mode == "\U0001f3af Single Feature Counterfactual":
+                    st.info("💡 All other 15 features stay automatically identical to Baseline. Choose 1 feature to tweak below:")
+                    target_feat = st.selectbox(
+                        "Target Feature to Tweak:",
+                        feature_names,
+                        key="wif_target_feat"
+                    )
+                    
+                    # Start mod_vals as copy of base_vals
+                    mod_vals = base_vals.copy()
+                    
+                    t_label = FEATURE_LABELS.get(target_feat, target_feat)
+                    t_help  = FEATURE_HELP.get(target_feat, None)
+                    t_key   = f"wif_single_{target_feat}"
+                    
+                    if target_feat in categorical_cols and target_feat in le_dict:
+                        classes = list(le_dict[target_feat].classes_)
+                        sel = st.selectbox(f"Modified value for {t_label}", options=classes, help=t_help, key=t_key)
+                        mod_vals[target_feat] = int(le_dict[target_feat].transform([sel])[0])
+                    else:
+                        min_v = int(df_encoded[target_feat].min())
+                        max_v = int(df_encoded[target_feat].max())
+                        def_v = base_vals[target_feat]
+                        if min_v == 0 and max_v == 1:
+                            sel = st.radio(f"Modified value for {t_label}", options=[0, 1], horizontal=True,
+                                           format_func=lambda x: "Yes" if x == 1 else "No",
+                                           help=t_help, key=t_key)
+                            mod_vals[target_feat] = sel
+                        else:
+                            sel = st.slider(f"Modified value for {t_label}", min_value=min_v, max_value=max_v,
+                                            value=int(def_v), step=1, help=t_help, key=t_key)
+                            mod_vals[target_feat] = sel
+                else:
+                    if st.button("📋 Copy Baseline to Modified", key="wif_sync_btn"):
+                        for feature in feature_names:
+                            if f"wif_base_{feature}" in st.session_state:
+                                st.session_state[f"wif_mod_{feature}"] = st.session_state[f"wif_base_{feature}"]
+                        st.rerun()
                     for feature in feature_names:
-                        if f"wif_base_{feature}" in st.session_state:
-                            st.session_state[f"wif_mod_{feature}"] = st.session_state[f"wif_base_{feature}"]
-                    st.rerun()
-                for feature in feature_names:
-                    mod_vals[feature] = build_feature_input("mod", feature)
+                        mod_vals[feature] = build_feature_input("mod", feature)
 
             def predict_scenario(vals):
                 input_df = pd.DataFrame(
