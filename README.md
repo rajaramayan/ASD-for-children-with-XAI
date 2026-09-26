@@ -1,4 +1,4 @@
-# 🧠 Attention-Fused ConvNeXt and MobileViT Framework with FastSAM Lesion Extraction for Multi-Class Crop Disease Detection 
+# 🧠 Early Detection of Autism Spectrum Disorder in Children Using Machine Learning and Artificial Neural Networks: A Q-CHAT-10 Screening Framework with Explainable AI and Web Deployment 
 
 
 **Author:** Prof. Raj Kumar Thakur
@@ -7,7 +7,7 @@ GitHub: [rajaramayan](https://github.com/rajaramayan)
 
 ---
 
-## 📌 Project Overview
+## 📌 Thesis Overview
 
 This project trains and evaluates multiple ML models and an ANN on ASD screening data. The best-performing model can then be used for real-time predictions via an interactive Streamlit web application. Additionally, it integrates **Explainable AI (XAI)** using SHAP (SHapley Additive exPlanations) to provide transparent, feature-level insights into how the models arrive at their predictions both globally and per-patient.
 
