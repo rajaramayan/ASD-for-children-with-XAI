@@ -1,4 +1,4 @@
-# 🧠 Autism Spectrum Disorder (ASD) Screening Prediction System
+# 🧠 Attention-Fused ConvNeXt and MobileViT Framework with FastSAM Lesion Extraction for Multi-Class Crop Disease Detection 
 
 
 **Author:** Prof. Raj Kumar Thakur
